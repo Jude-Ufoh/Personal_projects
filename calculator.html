@@ -1,0 +1,200 @@
+<title>Desk Calculator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;600&family=Share+Tech+Mono&display=swap">
+<style>
+/* Layout: one centered calculator body; LCD on top, 4-column key grid below */
+:root {
+  --bg: #e9ebe6;
+  --body: #f7f8f4;
+  --key: #ffffff;
+  --key-fg: #23281f;
+  --op: #dfe5d6;
+  --accent: #3f6b2e;
+  --accent-fg: #ffffff;
+  --lcd: #c9d4b4;
+  --lcd-fg: #1f2a17;
+  --muted: #6b7363;
+  --line: #d3d8cc;
+  --font-key: "Chivo", "Segoe UI", system-ui, sans-serif;
+  --font-lcd: "Share Tech Mono", ui-monospace, "Consolas", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #151813; --body: #1f231c; --key: #2a3026; --key-fg: #e6eadf;
+    --op: #343c2e; --accent: #8fbf6a; --accent-fg: #142010;
+    --lcd: #2f3a26; --lcd-fg: #d6e8b8; --muted: #95a08a; --line: #353c30;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #151813; --body: #1f231c; --key: #2a3026; --key-fg: #e6eadf;
+  --op: #343c2e; --accent: #8fbf6a; --accent-fg: #142010;
+  --lcd: #2f3a26; --lcd-fg: #d6e8b8; --muted: #95a08a; --line: #353c30;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--key-fg); font-family: var(--font-key);
+  display: grid; place-items: center;
+  padding-block: 24px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  box-sizing: border-box;
+}
+.calc {
+  width: 100%; max-width: 340px; background: var(--body);
+  border: 1px solid var(--line); border-radius: 22px; padding: 18px;
+  box-shadow: 0 12px 30px rgba(0,0,0,.12); box-sizing: border-box;
+  display: grid; gap: 16px;
+}
+.brand { display: flex; justify-content: space-between; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.lcd {
+  background: var(--lcd); color: var(--lcd-fg); border-radius: 10px;
+  padding: 12px 14px; font-family: var(--font-lcd); text-align: right;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.18); min-width: 0;
+}
+.expr { font-size: 14px; min-height: 1.3em; opacity: .7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.out { font-size: 40px; line-height: 1.15; overflow-x: auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+button {
+  font: 600 20px/1 var(--font-key); color: var(--key-fg); background: var(--key);
+  border: 1px solid var(--line); border-radius: 12px; height: 58px; cursor: pointer;
+  box-shadow: 0 2px 0 var(--line); transition: transform .05s, box-shadow .05s;
+}
+button:active, button.pressed { transform: translateY(2px); box-shadow: none; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fn { background: var(--op); font-size: 17px; }
+.op { background: var(--op); color: var(--accent); font-size: 24px; }
+.op.active { background: var(--accent); color: var(--accent-fg); }
+.eq { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.zero { grid-column: span 2; }
+@media (prefers-reduced-motion: reduce) { button { transition: none; } }
+</style>
+
+<main class="calc">
+  <div class="brand"><span>Desk Calculator</span><span>12-digit</span></div>
+  <div class="lcd" aria-live="polite">
+    <div class="expr" id="expr"></div>
+    <div class="out" id="out">0</div>
+  </div>
+  <div class="keys">
+    <button class="fn" id="k-clear" data-act="clear">AC</button>
+    <button class="fn" id="k-sign" data-act="sign">±</button>
+    <button class="fn" id="k-pct" data-act="pct">%</button>
+    <button class="op" id="k-div" data-op="/">÷</button>
+    <button id="k7" data-num="7">7</button>
+    <button id="k8" data-num="8">8</button>
+    <button id="k9" data-num="9">9</button>
+    <button class="op" id="k-mul" data-op="*">×</button>
+    <button id="k4" data-num="4">4</button>
+    <button id="k5" data-num="5">5</button>
+    <button id="k6" data-num="6">6</button>
+    <button class="op" id="k-sub" data-op="-">−</button>
+    <button id="k1" data-num="1">1</button>
+    <button id="k2" data-num="2">2</button>
+    <button id="k3" data-num="3">3</button>
+    <button class="op" id="k-add" data-op="+">+</button>
+    <button class="zero" id="k0" data-num="0">0</button>
+    <button id="k-dot" data-act="dot">.</button>
+    <button class="eq" id="k-eq" data-act="eq">=</button>
+  </div>
+</main>
+
+<script>
+const SYM = { "+": "+", "-": "−", "*": "×", "/": "÷" };
+const outEl = document.getElementById("out");
+const exprEl = document.getElementById("expr");
+
+// Example state so the first view shows a calculation in progress
+let acc = 128, op = "*", cur = "12", fresh = false, error = false;
+
+function fmt(n) {
+  if (!isFinite(n)) return "Error";
+  const r = parseFloat(n.toPrecision(12));
+  return Math.abs(r) >= 1e12 || (r !== 0 && Math.abs(r) < 1e-9) ? r.toExponential(6) : String(r);
+}
+function compute(a, b, o) {
+  switch (o) {
+    case "+": return a + b;
+    case "-": return a - b;
+    case "*": return a * b;
+    case "/": return b === 0 ? NaN : a / b;
+  }
+  return b;
+}
+function render() {
+  outEl.textContent = error ? "Error" : cur;
+  exprEl.textContent = op && acc !== null ? `${fmt(acc)} ${SYM[op]}` : "";
+  document.querySelectorAll(".op").forEach(b =>
+    b.classList.toggle("active", !error && fresh && b.dataset.op === op));
+}
+function clearAll() { acc = null; op = null; cur = "0"; fresh = false; error = false; }
+
+function inputNum(d) {
+  if (error) clearAll();
+  if (fresh || cur === "0") { cur = d; fresh = false; }
+  else if (cur.replace(/[-.]/g, "").length < 12) cur += d;
+}
+function inputDot() {
+  if (error) clearAll();
+  if (fresh) { cur = "0."; fresh = false; }
+  else if (!cur.includes(".")) cur += ".";
+}
+function setOp(o) {
+  if (error) return;
+  if (op && !fresh) {
+    const r = compute(acc, parseFloat(cur), op);
+    if (!isFinite(r)) { error = true; return; }
+    acc = r; cur = fmt(r);
+  } else if (!op) acc = parseFloat(cur);
+  op = o; fresh = true;
+}
+function equals() {
+  if (error || !op) return;
+  const b = parseFloat(cur);
+  const r = compute(acc, b, op);
+  exprEl.textContent = `${fmt(acc)} ${SYM[op]} ${fmt(b)} =`;
+  acc = null; op = null; fresh = true;
+  if (!isFinite(r)) { error = true; outEl.textContent = "Error"; return true; }
+  cur = fmt(r);
+  outEl.textContent = cur;
+  return true;
+}
+function backspace() {
+  if (error || fresh) return;
+  cur = cur.length > 1 && cur !== "-0" ? cur.slice(0, -1) : "0";
+  if (cur === "-") cur = "0";
+}
+
+function act(a) {
+  if (a === "clear") clearAll();
+  else if (a === "sign") { if (!error) cur = cur.startsWith("-") ? cur.slice(1) : (cur === "0" ? cur : "-" + cur); fresh = false; }
+  else if (a === "pct") { if (!error) { const v = parseFloat(cur); cur = fmt(op && acc !== null && (op === "+" || op === "-") ? acc * v / 100 : v / 100); fresh = false; } }
+  else if (a === "dot") inputDot();
+  else if (a === "eq") { if (equals()) return; }
+  else if (a === "back") backspace();
+  render();
+}
+
+document.querySelector(".keys").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.num) { inputNum(b.dataset.num); render(); }
+  else if (b.dataset.op) { setOp(b.dataset.op); render(); }
+  else act(b.dataset.act);
+});
+
+const KEYMAP = { Enter: "k-eq", "=": "k-eq", Escape: "k-clear", Delete: "k-clear", "%": "k-pct", ".": "k-dot", ",": "k-dot",
+  "+": "k-add", "-": "k-sub", "*": "k-mul", x: "k-mul", "/": "k-div" };
+document.addEventListener("keydown", e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  let id = /^[0-9]$/.test(e.key) ? "k" + e.key : KEYMAP[e.key];
+  if (e.key === "Backspace") { e.preventDefault(); act("back"); return; }
+  if (!id) return;
+  e.preventDefault();
+  const b = document.getElementById(id);
+  b.classList.add("pressed"); setTimeout(() => b.classList.remove("pressed"), 90);
+  b.click();
+});
+
+render();
+</script>

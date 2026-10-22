@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Margin Tic-Tac-Toe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: a single notebook page — graph-paper ground, a red margin rule, the board drawn in pencil, scores tallied in the margin */
+:root {
+  --paper: #f7f8f3;
+  --grid: #dbe4ec;
+  --margin: #e7a3a3;
+  --pencil: #4a4f57;
+  --ink-x: #1f4fb8;
+  --ink-o: #c2362f;
+  --muted: #6c7480;
+  --chip: #eceee6;
+  --font-hand: "Kalam", "Comic Sans MS", "Segoe Print", cursive;
+  --font-body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #151b24; --grid: #222c39; --margin: #6e3a3d; --pencil: #aeb6c2;
+    --ink-x: #7fa6ff; --ink-o: #ff8a7a; --muted: #8a93a1; --chip: #1e2631;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #151b24; --grid: #222c39; --margin: #6e3a3d; --pencil: #aeb6c2;
+  --ink-x: #7fa6ff; --ink-o: #ff8a7a; --muted: #8a93a1; --chip: #1e2631;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { margin: 0; }
+body {
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+  color: var(--pencil);
+  font-family: var(--font-body);
+  font-size: 1rem;
+}
+.page {
+  position: relative;
+  max-width: 34rem;
+  margin: 0 auto;
+  padding-block: 1.5rem 2.5rem;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 1.25rem;
+}
+h1 {
+  font-family: var(--font-hand); font-weight: 700;
+  font-size: clamp(2rem, 7vw, 2.6rem); line-height: 1;
+  margin: 0; color: var(--pencil); text-wrap: balance;
+  border-bottom: 2px solid var(--margin); padding-bottom: .5rem;
+}
+h1 .x { color: var(--ink-x); } h1 .o { color: var(--ink-o); }
+
+.controls { display: flex; flex-wrap: wrap; gap: .75rem 1.25rem; align-items: center; }
+.seg { display: flex; gap: 2px; background: var(--chip); border-radius: 999px; padding: 3px; }
+.seg button {
+  font: inherit; font-size: .875rem; border: 0; background: transparent; color: var(--muted);
+  padding: .4rem .85rem; border-radius: 999px; cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: var(--paper); color: var(--pencil); font-weight: 700; box-shadow: 0 1px 2px rgb(0 0 0 / .15); }
+.seg button:focus-visible, .cell:focus-visible, .action:focus-visible { outline: 2px solid var(--ink-x); outline-offset: 2px; }
+.label { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.group { display: flex; align-items: center; gap: .5rem; }
+
+.scores { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; }
+.score { display: flex; flex-direction: column; align-items: center; gap: .1rem; padding: .25rem 0; }
+.score .who { font-size: .8rem; color: var(--muted); }
+.score .n { font-family: var(--font-hand); font-size: 2rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.score.x .n { color: var(--ink-x); } .score.o .n { color: var(--ink-o); }
+.score.turn .who { color: var(--pencil); font-weight: 700; }
+.score.turn .who::after { content: " ←"; }
+
+.status { font-family: var(--font-hand); font-size: 1.5rem; text-align: center; min-height: 2.2rem; margin: 0; }
+
+.board-wrap { position: relative; width: min(100%, 22rem); aspect-ratio: 1; max-width: 100%; margin: 0 auto; }
+.board { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); }
+.cell { border: 0; background: transparent; padding: 12%; cursor: pointer; border-radius: 8px; }
+.cell:disabled { cursor: default; }
+.cell:not(:disabled):hover { background: color-mix(in srgb, var(--chip) 70%, transparent); }
+.cell svg { width: 100%; height: 100%; overflow: visible; display: block; }
+.overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.grid-lines path { stroke: var(--pencil); stroke-width: 3; fill: none; stroke-linecap: round; }
+.mark { fill: none; stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; }
+.mark.x { stroke: var(--ink-x); } .mark.o { stroke: var(--ink-o); }
+.draw { stroke-dasharray: var(--len); stroke-dashoffset: var(--len); animation: draw .28s ease-out forwards; }
+.draw.second { animation-delay: .18s; }
+.strike { stroke: var(--pencil); stroke-width: 6; stroke-linecap: round; fill: none; opacity: .85; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+.cell.dim svg { opacity: .3; transition: opacity .3s; }
+
+.actions { display: flex; flex-wrap: wrap; gap: .75rem; justify-content: center; }
+.action {
+  font: inherit; font-weight: 700; font-size: .95rem; cursor: pointer;
+  padding: .6rem 1.2rem; border-radius: 6px;
+  border: 2px solid var(--pencil); background: var(--paper); color: var(--pencil);
+}
+.action.primary { background: var(--pencil); color: var(--paper); }
+.action:hover { transform: translateY(-1px); }
+.note { font-size: .85rem; color: var(--muted); text-align: center; margin: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .draw { animation: none; stroke-dashoffset: 0; }
+  .action:hover { transform: none; }
+}
+</style>
+
+</head>
+<body>
+<main class="page">
+  <h1>Tic-Tac-Toe <span class="x">×</span> <span class="o">○</span></h1>
+
+  <div class="controls">
+    <div class="group">
+      <span class="label" id="mode-label">Play</span>
+      <div class="seg" role="group" aria-labelledby="mode-label">
+        <button id="mode-cpu" data-mode="cpu" aria-pressed="true">vs Computer</button>
+        <button id="mode-pvp" data-mode="pvp" aria-pressed="false">2 Players</button>
+      </div>
+    </div>
+    <div class="group" id="level-group">
+      <span class="label" id="level-label">Level</span>
+      <div class="seg" role="group" aria-labelledby="level-label">
+        <button id="lvl-easy" data-level="easy" aria-pressed="false">Easy</button>
+        <button id="lvl-hard" data-level="hard" aria-pressed="true">Unbeatable</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="scores" aria-live="polite">
+    <div class="score x" id="score-x"><span class="who" id="name-x">You (X)</span><span class="n" id="n-x">0</span></div>
+    <div class="score" id="score-d"><span class="who">Draws</span><span class="n" id="n-d">0</span></div>
+    <div class="score o" id="score-o"><span class="who" id="name-o">Computer (O)</span><span class="n" id="n-o">0</span></div>
+  </div>
+
+  <p class="status" id="status" aria-live="polite">Your move</p>
+
+  <div class="board-wrap">
+    <svg class="overlay grid-lines" viewBox="0 0 300 300" aria-hidden="true">
+      <path d="M101 8 C99 90 103 200 99 292"/>
+      <path d="M199 10 C201 100 197 210 201 290"/>
+      <path d="M8 99 C90 102 210 97 292 101"/>
+      <path d="M10 201 C100 198 200 203 290 199"/>
+    </svg>
+    <div class="board" id="board" role="grid" aria-label="Tic-tac-toe board"></div>
+    <svg class="overlay" id="strike-layer" viewBox="0 0 300 300" aria-hidden="true"></svg>
+  </div>
+
+  <div class="actions">
+    <button class="action primary" id="next">New round</button>
+    <button class="action" id="reset">Reset scores</button>
+  </div>
+  <p class="note" id="note">X and O take turns going first each round.</p>
+</main>
+
+<script>
+(() => {
+  const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  const $ = id => document.getElementById(id);
+  const boardEl = $('board'), strikeLayer = $('strike-layer'), statusEl = $('status');
+
+  let state = { mode: 'cpu', level: 'hard', scores: { X: 0, O: 0, D: 0 }, starter: 'X' };
+  let board, turn, over, cpuTimer;
+
+  try { const saved = JSON.parse(localStorage.getItem('ttt') || 'null'); if (saved) Object.assign(state, saved); } catch (e) {}
+  const save = () => { try { localStorage.setItem('ttt', JSON.stringify(state)); } catch (e) {} };
+
+  // Build cells once
+  const cells = [];
+  for (let i = 0; i < 9; i++) {
+    const b = document.createElement('button');
+    b.className = 'cell'; b.id = 'cell-' + i; b.setAttribute('role', 'gridcell');
+    b.addEventListener('click', () => humanMove(i));
+    b.addEventListener('keydown', e => {
+      const moves = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -3, ArrowDown: 3 };
+      if (moves[e.key] == null) return;
+      const j = i + moves[e.key];
+      if (j >= 0 && j < 9 && !(Math.abs(moves[e.key]) === 1 && Math.floor(j / 3) !== Math.floor(i / 3))) { cells[j].focus(); e.preventDefault(); }
+    });
+    boardEl.appendChild(b); cells.push(b);
+  }
+
+  function markSVG(p) {
+    if (p === 'X') return `<svg viewBox="0 0 100 100" aria-hidden="true">
+      <path class="mark x draw" style="--len:125" d="M12 14 C40 40 62 62 88 88"/>
+      <path class="mark x draw second" style="--len:125" d="M86 12 C60 38 40 60 14 86"/></svg>`;
+    return `<svg viewBox="0 0 100 100" aria-hidden="true">
+      <path class="mark o draw" style="--len:270" d="M52 10 C78 10 92 30 90 52 C88 76 70 92 48 90 C24 88 10 70 12 48 C14 26 30 12 56 13"/></svg>`;
+  }
+
+  const winner = b => {
+    for (const l of LINES) if (b[l[0]] && b[l[0]] === b[l[1]] && b[l[1]] === b[l[2]]) return { p: b[l[0]], line: l };
+    return b.every(Boolean) ? { p: 'D' } : null;
+  };
+
+  function minimax(b, player, depth) {
+    const w = winner(b);
+    if (w) return { score: w.p === 'O' ? 10 - depth : w.p === 'X' ? depth - 10 : 0 };
+    let best = { score: player === 'O' ? -Infinity : Infinity, move: -1 };
+    for (let i = 0; i < 9; i++) {
+      if (b[i]) continue;
+      b[i] = player;
+      const r = minimax(b, player === 'O' ? 'X' : 'O', depth + 1);
+      b[i] = null;
+      if (player === 'O' ? r.score > best.score : r.score < best.score) best = { score: r.score, move: i };
+    }
+    return best;
+  }
+
+  function cpuPick() {
+    const empty = board.map((v, i) => v ? -1 : i).filter(i => i >= 0);
+    if (state.level === 'easy') {
+      // Takes an obvious win or block about half the time, otherwise plays anywhere
+      if (Math.random() < 0.5) {
+        for (const p of ['O', 'X']) for (const i of empty) {
+          const t = board.slice(); t[i] = p; if (winner(t)?.p === p) return i;
+        }
+      }
+      return empty[Math.floor(Math.random() * empty.length)];
+    }
+    if (empty.length === 9) return [0, 2, 4, 6, 8][Math.floor(Math.random() * 5)];
+    return minimax(board.slice(), 'O', 0).move;
+  }
+
+  function place(i, p) {
+    board[i] = p;
+    cells[i].innerHTML = markSVG(p);
+    cells[i].disabled = true;
+    cells[i].setAttribute('aria-label', `Row ${Math.floor(i / 3) + 1}, column ${i % 3 + 1}: ${p}`);
+    const w = winner(board);
+    if (w) return finish(w);
+    turn = p === 'X' ? 'O' : 'X';
+    render();
+    if (isCpuTurn()) scheduleCpu();
+  }
+
+  const isCpuTurn = () => state.mode === 'cpu' && turn === 'O' && !over;
+  function scheduleCpu() {
+    clearTimeout(cpuTimer);
+    setBoardLocked(true);
+    cpuTimer = setTimeout(() => { if (isCpuTurn()) place(cpuPick(), 'O'); }, 450);
+  }
+  function humanMove(i) {
+    if (over || board[i] || isCpuTurn()) return;
+    place(i, turn);
+  }
+
+  function finish(w) {
+    over = true;
+    state.scores[w.p]++;
+    save();
+    setBoardLocked(true);
+    if (w.line) {
+      const c = i => [50 + (i % 3) * 100, 50 + Math.floor(i / 3) * 100];
+      const [a, b] = [c(w.line[0]), c(w.line[2])];
+      const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy), ext = 34 / len;
+      const x1 = a[0] - dx * ext, y1 = a[1] - dy * ext, x2 = b[0] + dx * ext, y2 = b[1] + dy * ext;
+      const L = Math.hypot(x2 - x1, y2 - y1);
+      strikeLayer.innerHTML = `<path class="strike draw" style="--len:${Math.ceil(L)};animation-delay:.3s" d="M${x1} ${y1} L${x2} ${y2}"/>`;
+      cells.forEach((el, i) => el.classList.toggle('dim', !w.line.includes(i) && !!board[i]));
+    }
+    render(w);
+  }
+
+  function setBoardLocked(locked) {
+    cells.forEach((el, i) => el.disabled = locked || !!board[i]);
+  }
+
+  const names = () => state.mode === 'cpu'
+    ? { X: 'You (X)', O: 'Computer (O)' }
+    : { X: 'Player X', O: 'Player O' };
+
+  function render(w) {
+    const n = names();
+    $('name-x').textContent = n.X; $('name-o').textContent = n.O;
+    $('n-x').textContent = state.scores.X; $('n-o').textContent = state.scores.O; $('n-d').textContent = state.scores.D;
+    $('score-x').classList.toggle('turn', !over && turn === 'X');
+    $('score-o').classList.toggle('turn', !over && turn === 'O');
+    $('level-group').hidden = state.mode !== 'cpu';
+    document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === state.mode));
+    document.querySelectorAll('[data-level]').forEach(b => b.setAttribute('aria-pressed', b.dataset.level === state.level));
+
+    if (w) {
+      if (w.p === 'D') statusEl.textContent = "Cat's game. It's a draw.";
+      else if (state.mode === 'cpu') statusEl.textContent = w.p === 'X' ? 'You win!' : 'The computer wins.';
+      else statusEl.textContent = `Player ${w.p} wins!`;
+    } else if (state.mode === 'cpu') {
+      statusEl.textContent = turn === 'X' ? 'Your move' : 'Computer is thinking…';
+    } else {
+      statusEl.textContent = `Player ${turn} to move`;
+    }
+  }
+
+  function newRound(keepStarter) {
+    clearTimeout(cpuTimer);
+    if (!keepStarter && board && over) state.starter = state.starter === 'X' ? 'O' : 'X';
+    board = Array(9).fill(null); over = false; turn = state.starter;
+    strikeLayer.innerHTML = '';
+    cells.forEach((el, i) => {
+      el.innerHTML = ''; el.classList.remove('dim');
+      el.setAttribute('aria-label', `Row ${Math.floor(i / 3) + 1}, column ${i % 3 + 1}: empty`);
+    });
+    setBoardLocked(false);
+    save(); render();
+    if (isCpuTurn()) scheduleCpu();
+  }
+
+  document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => {
+    if (state.mode === b.dataset.mode) return;
+    state.mode = b.dataset.mode; state.scores = { X: 0, O: 0, D: 0 }; state.starter = 'X';
+    newRound(true);
+  }));
+  document.querySelectorAll('[data-level]').forEach(b => b.addEventListener('click', () => {
+    if (state.level === b.dataset.level) return;
+    state.level = b.dataset.level; state.scores = { X: 0, O: 0, D: 0 }; state.starter = 'X';
+    newRound(true);
+  }));
+  $('next').addEventListener('click', () => newRound(false));
+  $('reset').addEventListener('click', () => { state.scores = { X: 0, O: 0, D: 0 }; state.starter = 'X'; newRound(true); });
+
+  newRound(true);
+})();
+</script>
+</body>
+</html>
