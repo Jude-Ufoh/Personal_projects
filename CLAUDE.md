@@ -27,4 +27,11 @@ A collection of small, independent web projects. Each project is a single self-c
 
 ## Git workflow
 
-The remote is `origin` → https://github.com/Jude-Ufoh/Personal_projects (public), branch `main`. After every meaningful change, make a focused commit and push. Word lock files (`~$*`) are gitignored.
+The remote is `origin` → https://github.com/Jude-Ufoh/Personal_projects (public), branch `main`. Word lock files (`~$*`) are gitignored.
+
+**Commit and push as you work. Don't wait to be asked.** The goal is that no work or project state is ever lost, and any change can be reverted.
+
+- After each meaningful change (a feature, a fix, a new project, a docs update), commit right away. Don't let unrelated changes pile up into one commit.
+- Commit messages should be clean and imperative, with a short summary line (e.g. `Add undo button to calculator`, `Fix diagonal win detection in tic-tac-toe`), and a body when the reason isn't obvious.
+- Run `git push` after every commit so GitHub always has the latest state.
+- New projects and files go inside this repo folder (not a scratch location) so they get committed.
